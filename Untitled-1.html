@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo da Memória</title>
+    <style>
+        /* Resetando margens e padding */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Estilo geral */
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #050505;
+            background-image: url('gritty-background.jpg'); /* Fundo pixelado assustador */
+            background-repeat: repeat;
+            background-size: 200px 200px;
+            color: #00ff00; /* Verde neon */
+            text-align: center;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        h1 {
+            color: #ff0000;
+            font-size: 5em;
+            text-shadow: 2px 2px 4px #000, 0 0 10px #ff0000, 0 0 20px #ff0000;
+            font-family: 'Press Start 2P', monospace; /* Fonte pixelada */
+            margin-bottom: 20px;
+            animation: title-glow 1.5s infinite alternate;
+        }
+
+        @keyframes title-glow {
+            0% {
+                text-shadow: 2px 2px 4px #000, 0 0 10px #ff0000, 0 0 20px #ff0000;
+            }
+            100% {
+                text-shadow: 2px 2px 4px #000, 0 0 20px #ff0000, 0 0 50px #ff0000;
+            }
+        }
+
+        /* Estilo do tabuleiro do jogo */
+        .memory-game {
+            display: grid;
+            grid-template-columns: repeat(4, 120px);
+            grid-gap: 15px;
+            background-color: #111;
+            padding: 20px;
+            border: 5px solid #ff0000;
+            border-radius: 15px;
+            box-shadow: inset 0 0 25px rgba(255, 0, 0, 0.8), 0 0 40px #ff0000;
+            animation: glitch 3s infinite;
+        }
+
+        @keyframes glitch {
+            0%, 100% {
+                transform: translate(0, 0);
+                filter: hue-rotate(0deg);
+            }
+            50% {
+                transform: translate(2px, -2px);
+                filter: hue-rotate(20deg);
+            }
+        }
+
+        /* Estilo das cartas */
+        .memory-card {
+            width: 120px;
+            height: 120px;
+            background-color: #222;
+            border: 2px solid #333;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            animation: card-flicker 1.5s infinite alternate;
+            position: relative;
+        }
+
+        @keyframes card-flicker {
+            0% {
+                transform: rotate(-2deg);
+            }
+            100% {
+                transform: rotate(2deg);
+            }
+        }
+
+        .memory-card:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 15px #ff0000, 0 0 30px #00ff00;
+        }
+
+        .memory-card:active {
+            transform: scale(0.95);
+        }
+
+        .memory-card .front,
+        .memory-card .back {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            backface-visibility: hidden;
+        }
+
+        .memory-card .front {
+            background-color: #111;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #ff0000;
+            text-transform: uppercase;
+            font-family: 'Press Start 2P', monospace;
+            border-radius: 5px;
+        }
+
+        .memory-card .back {
+            background-image: url('scary-pattern.png'); /* Padrão assustador */
+            background-size: cover;
+            transform: rotateY(180deg);
+        }
+
+        .memory-card.flip .front {
+            transform: rotateY(180deg);
+        }
+
+        .memory-card.flip .back {
+            transform: rotateY(0);
+        }
+
+        .memory-card.flip {
+            animation: blood-drip 1s ease-in-out forwards;
+        }
+
+        @keyframes blood-drip {
+            0% {
+                box-shadow: 0 0 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(255, 0, 0, 0.7);
+            }
+            100% {
+                box-shadow: 0 0 60px rgba(0, 0, 0, 0.9), 0 0 100px rgba(255, 0, 0, 0.8);
+            }
+        }
+
+        /* Imagem e animação de vitória */
+        .victory-image {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            animation: flicker 1.5s infinite alternate;
+        }
+
+        @keyframes flicker {
+            0% {
+                opacity: 0.8;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Jogo da Memória?</h1>
+    <div class="memory-game"></div>
+
+    <!-- Sons assustadores -->
+    <audio id="flip-sound" src="segundp.mp3" preload="auto"></audio>
+    <audio id="background-sound" src="https://www.soundjay.com/button/beep-10.wav" loop autoplay preload="auto"></audio>
+    <audio id="victory-sound" src="rir.mp3" preload="auto"></audio>
+    
+    <!-- Imagem de vitória -->
+    <img id="victory-image" class="victory-image" src="vencer.png" alt="Imagem de Vitória">
+
+    <script>
+        const images = [
+            'teste.jpg', 
+            'teste1.png', 
+            'teste2.png', 
+            'teste3.jpg', 
+            'teste4.jpg', 
+            'teste5.png', 
+        ];
+
+        const cardsArray = [...images, ...images].sort(() => 0.5 - Math.random());
+        const gameBoard = document.querySelector('.memory-game');
+        const flipSound = document.getElementById('flip-sound');
+        const victorySound = document.getElementById('victory-sound');
+        const victoryImage = document.getElementById('victory-image');
+        const totalCards = cardsArray.length;
+
+        cardsArray.forEach((image, index) => {
+            const card = document.createElement('div');
+            card.classList.add('memory-card');
+            card.dataset.image = image;
+
+            card.innerHTML = `
+                <div class="front"></div>
+                <div class="back" style="background-image: url(${image});"></div>
+            `;
+
+            gameBoard.appendChild(card);
+        });
+
+        let hasFlippedCard = false;
+        let firstCard, secondCard;
+        let lockBoard = false;
+        let matchedCards = 0;
+
+        function flipCard() {
+            if (lockBoard) return;
+            if (this === firstCard) return;
+
+            flipSound.play();
+            this.classList.add('flip');
+
+            if (!hasFlippedCard) {
+                hasFlippedCard = true;
+                firstCard = this;
+                return;
+            }
+
+            secondCard = this;
+
+            checkForMatch();
+        }
+
+        function checkForMatch() {
+            const isMatch = firstCard.dataset.image === secondCard.dataset.image;
+            isMatch ? disableCards() : unflipCards();
+        }
+
+        function disableCards() {
+            firstCard.removeEventListener('click', flipCard);
+            secondCard.removeEventListener('click', flipCard);
+
+            matchedCards++;
+
+            if (matchedCards === totalCards / 2) {
+                showVictory();
+            }
+
+            resetBoard();
+        }
+
+        function unflipCards() {
+            lockBoard = true;
+
+            setTimeout(() => {
+                firstCard.classList.remove('flip');
+                secondCard.classList.remove('flip');
+                resetBoard();
+            }, 1000);
+        }
+
+        function resetBoard() {
+            [hasFlippedCard, lockBoard] = [false, false];
+            [firstCard, secondCard] = [null, null];
+        }
+
+        function showVictory() {
+            victoryImage.style.display = 'block';
+            victorySound.play();
+            setTimeout(() => {
+                victoryImage.style.display = 'none';
+            }, 2000);
+        }
+
+        document.querySelectorAll('.memory-card').forEach(card => {
+            card.addEventListener('click', flipCard);
+        });
+    </script>
+</body>
+
+</html>
